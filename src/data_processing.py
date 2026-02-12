@@ -45,3 +45,34 @@ def aggregate_forecast_by_day(forecast_df: pd.DataFrame) -> pd.DataFrame:
     if "temp_min" in df.columns and "temp_max" in df.columns:
         return df.groupby("date").agg(temp_min=("temp_min", "min"), temp_max=("temp_max", "max"), temp_mean=("temp", "mean")).reset_index()
     return df.groupby("date").agg(temp_min=("temp", "min"), temp_max=("temp", "max"), temp_mean=("temp", "mean")).reset_index()
+
+
+def add_sentiment_to_news(news_df: pd.DataFrame):
+    """Add sentiment and misinfo_risk columns to news DataFrame."""
+    if news_df.empty:
+        return news_df
+    try:
+        from sentiment import score_sentiment, flag_misinfo_risk
+        out = news_df.copy()
+        texts = (out.get("title", "") + " " + out.get("description", "")).fillna("")
+        out["sentiment"] = texts.apply(score_sentiment)
+        out["misinfo_risk"] = texts.apply(flag_misinfo_risk)
+        return out
+    except Exception:
+        return news_df
+
+
+def market_stress_score(stocks_df: pd.DataFrame, crypto_df: pd.DataFrame, news_sentiment: float = 0, anomaly_flags: int = 0) -> float:
+    """Return 0-100 market stress score."""
+    import numpy as np
+    vol_scores = []
+    for _, row in stocks_df.iterrows():
+        ch = abs(row.get("change", 0) or 0)
+        vol_scores.append(min(30, ch * 2))
+    for _, row in crypto_df.iterrows():
+        ch = abs(row.get("change_24h", 0) or 0)
+        vol_scores.append(min(30, ch))
+    vol = np.mean(vol_scores) if vol_scores else 20
+    sent = max(0, 25 - news_sentiment * 25)
+    anomaly = min(25, anomaly_flags * 5)
+    return min(100, round(vol + sent + anomaly, 0))

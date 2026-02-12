@@ -249,3 +249,31 @@ def fetch_all_news(queries: list[str] = None) -> pd.DataFrame:
     dfs = [fetch_news_api(q) for q in queries]
     result = pd.concat([d for d in dfs if not d.empty], ignore_index=True) if any(not d.empty for d in dfs) else pd.DataFrame()
     return result if not result.empty else _demo_news()
+
+
+def fetch_reddit_sentiment(subreddits: list[str] = None, limit: int = 10) -> pd.DataFrame:
+    """Fetch Reddit posts for sentiment. Requires PRAW + REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET in .env."""
+    try:
+        import praw  # pip install praw
+        cid = os.getenv("REDDIT_CLIENT_ID")
+        secret = os.getenv("REDDIT_CLIENT_SECRET")
+        if not cid or not secret:
+            return pd.DataFrame()
+        reddit = praw.Reddit(client_id=cid, client_secret=secret, user_agent="dashboard/1.0")
+        subs = subreddits or ["wallstreetbets", "stocks", "CryptoCurrency"]
+        rows = []
+        for sub in subs[:3]:
+            try:
+                for post in reddit.subreddit(sub).hot(limit=limit):
+                    rows.append({
+                        "title": post.title[:200],
+                        "subreddit": sub,
+                        "score": post.score,
+                        "num_comments": post.num_comments,
+                        "created": datetime.fromtimestamp(post.created_utc).strftime("%Y-%m-%d %H:%M"),
+                    })
+            except Exception:
+                pass
+        return pd.DataFrame(rows) if rows else pd.DataFrame()
+    except (ImportError, Exception):
+        return pd.DataFrame()
