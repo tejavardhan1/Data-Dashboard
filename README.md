@@ -1,83 +1,138 @@
-# Real-Time Insight Dashboard
+# Real-Time Risk Intelligence Dashboard  
+### A Multi-API Analytics System for Financial, Environmental, and News Signals
 
-**Finance, Weather, News & Risk Signals** – A dashboard that combines live data with sentiment analysis, anomaly detection, and predictive signals for urgent 2026 issues.
+## Overview
 
----
+In 2026, critical information is fragmented across financial markets, weather systems, and global news streams. Rapid volatility, environmental disruptions, and sentiment-driven market shifts require unified real-time visibility.
 
-## Features
+This project builds a Real-Time Risk Intelligence Dashboard that aggregates multiple live data sources, processes them, and presents interactive insights in a single, dynamic interface.
 
-| Feature | Description |
-|--------|-------------|
-| **Market Stress** | Volatility + sentiment + anomaly signals (0–100 score) |
-| **Finance** | Stocks & crypto with trend alerts |
-| **Weather** | Open-Meteo (no API key) |
-| **News & Sentiment** | NLP sentiment, authenticity scoring, misinfo flags |
-| **Risk Tracker** | News sentiment by source |
-| **Deepfake Risk** | AI misinformation & deepfake detection signals, authenticity scoring |
-| **Economic Stress** | Reddit + market + news correlation, stress alerts |
-| **Threat Intelligence** | Cybersecurity threat feeds, AbuseIPDB, NLP classification |
-| **Predictive Signals** | 7-day market projections |
-| **Predictions** | Stock, crypto & weather with volatility |
+Instead of manually tracking multiple platforms, users can monitor signals, detect anomalies, and observe trend correlations in one centralized system.
 
----
+## Problem Statement
+Modern decision-making is challenged by:
+
+- Fragmented real-time data streams  
+- Delayed insight into volatility and risk  
+- Lack of unified analytics across domains  
+- Manual monitoring of financial, environmental, and news platforms  
+
+There is a need for a consolidated system that continuously gathers data, processes trends, and highlights meaningful signals.
+
+## Solution
+
+This dashboard integrates live APIs and presents:
+
+- Real-time financial market data (stocks/crypto)
+- Live weather information
+- Breaking news feeds
+- Interactive trend visualization
+- Auto-refreshing live updates
+- Optional predictive analytics modules
+
+The system processes and visualizes data in a structured dashboard built using Streamlit and Plotly.
+
+## Key Features
+
+- Multi-API Integration  
+  Aggregates financial, weather, and news data into a unified pipeline.
+
+- Real-Time Updates  
+  Automatically refreshes to provide continuously updated insights.
+
+- Interactive Visualizations  
+  Dynamic charts and tables for real-time trend monitoring.
+
+- Volatility & Trend Monitoring  
+  Highlights market fluctuations and environmental changes.
+
+- Modular Architecture  
+  Designed to easily expand with anomaly detection, sentiment analysis, or predictive modeling.
+
+## System Architecture
+
+Data Flow:
+
+API Sources  
+→ Data Fetching Layer  
+→ Data Processing & Cleaning  
+→ (Optional ML / Signal Detection Layer)  
+→ Streamlit Dashboard Interface  
+
+This structure enables scalability and future integration of advanced analytics.
 
 ## Tech Stack
 
-- **Python 3.10+**, Pandas, NumPy
-- **Streamlit**, Plotly
-- **scikit-learn** – Time-series predictions
-- **TextBlob** – Sentiment analysis
-- **yfinance** – Stocks & crypto
-- **Open-Meteo** – Weather (no key)
-- **News API** – News
-- **PRAW** – Reddit (optional)
+Backend & Data Processing:
+- Python
+- Pandas
+- NumPy
 
----
+APIs:
+- Yahoo Finance
+- OpenWeatherMap
+- News API
 
-## Installation
+Visualization:
+- Streamlit
+- Plotly
 
-```bash
-git clone https://github.com/yourusername/Data-Dashboard.git
-cd Data-Dashboard
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-Copy `.env.example` to `.env` and add:
-- `NEWS_API_KEY` – [newsapi.org](https://newsapi.org/)
-- `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` – [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps)
-- `ABUSEIPDB_API_KEY` (optional) – [abuseipdb.com](https://www.abuseipdb.com/) for IP threat lookup
-
-## Run
-
-```bash
-streamlit run src/dashboard.py
-```
-
-Open [http://localhost:8501](http://localhost:8501)
-
----
+Optional Extensions:
+- Scikit-learn
+- Time Series Forecasting Models
 
 ## Project Structure
 
-```
 Data-Dashboard/
+│
 ├── src/
-│   ├── api_fetcher.py     # Finance, weather, news, Reddit
-│   ├── data_processing.py # Clean, sentiment, stress score
-│   ├── sentiment.py       # NLP sentiment, authenticity, deepfake risk
-│   ├── anomaly.py         # Z-score anomaly detection
-│   ├── threat.py          # Threat classification, AbuseIPDB, threat news
-│   ├── ml_model.py        # Predictions
-│   └── dashboard.py       # Streamlit app
-├── requirements.txt
+│ ├── api_fetcher.py
+│ ├── data_processing.py
+│ ├── dashboard.py
+│
+├── data/
+├── assets/
+├── .streamlit/
 ├── .env.example
+├── requirements.txt
 └── README.md
-```
+## Installation
 
----
+Clone the repository:
+git clone https://github.com/tejavardhan1/Data-Dashboard.git
+cd Data-Dashboard
+Install dependencies:
+pip install -r requirements.txt
+Set up environment variables using `.env.example`.
+Run the dashboard:
+streamlit run src/dashboard.py
+The application will be available at:
+http://localhost:8501/
 
-## License
+## Example Use Cases
 
-MIT
+- Monitoring financial market volatility alongside breaking news
+- Observing weather trends in real-time
+- Identifying potential correlation between sentiment shifts and price changes
+- Serving as a foundation for advanced anomaly detection systems
+
+## Future Enhancements
+
+- Real-time anomaly detection for financial signals
+- News sentiment analysis using NLP
+- Risk scoring engine
+- Alert notification system
+- Public deployment with live hosted demo
+- Integration of additional real-world data streams
+
+## Why This Project Matters
+
+In an era of rapid data generation, actionable insight depends on integration and clarity. This project demonstrates how real-time data streams can be unified into a decision-support interface.
+
+It showcases:
+
+- API integration
+- Data pipeline design
+- Real-time processing
+- Interactive dashboard engineering
+- Scalable analytics architecture
