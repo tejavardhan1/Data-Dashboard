@@ -8,7 +8,34 @@ try:
 except ImportError:
     TEXTBLOB_AVAILABLE = False
 
-MISINFO_KEYWORDS = ["deepfake", "fake news", "misinformation", "disinformation", "AI-generated", "hoax", "false claim"]
+MISINFO_KEYWORDS = ["deepfake", "fake news", "misinformation", "disinformation", "AI-generated", "AI-generated content", "hoax", "false claim", "manipulated", "synthetic media", "phishing"]
+TRUSTED_SOURCES = ["reuters", "ap", "bbc", "nytimes", "wsj", "bloomberg", "npr", "associated press"]
+SUSPICIOUS_PATTERNS = ["urgent", "click here", "act now", "verified by ai", "100% real"]
+
+
+def authenticity_score(text: str, source: str = "") -> float:
+    """Return 0-100 authenticity score. Higher = more likely authentic."""
+    if not text:
+        return 50.0
+    t, s = str(text).lower(), str(source).lower()
+    score = 70.0
+    if any(ts in s for ts in TRUSTED_SOURCES):
+        score += 15
+    if any(kw in t for kw in MISINFO_KEYWORDS):
+        score -= 30
+    if any(p in t for p in SUSPICIOUS_PATTERNS):
+        score -= 15
+    return max(0, min(100, round(score, 0)))
+
+
+def deepfake_risk_score(text: str) -> float:
+    """Return 0-100 deepfake/misinfo risk. Higher = higher risk."""
+    if not text:
+        return 0.0
+    t = str(text).lower()
+    hits = sum(1 for kw in MISINFO_KEYWORDS if kw in t)
+    susp = sum(1 for p in SUSPICIOUS_PATTERNS if p in t)
+    return min(100, round(hits * 15 + susp * 10, 0))
 
 
 def score_sentiment(text: str) -> float:

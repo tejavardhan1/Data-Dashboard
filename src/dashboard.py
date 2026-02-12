@@ -14,8 +14,9 @@ from streamlit_autorefresh import st_autorefresh
 from api_fetcher import fetch_all_news, fetch_all_weather, fetch_crypto_yahoo, fetch_crypto_history, fetch_reddit_sentiment, fetch_stock_history, fetch_yahoo_finance
 from data_processing import add_sentiment_to_news, aggregate_forecast_by_day, clean_crypto_data, clean_stock_data, compute_trend_alerts, market_stress_score
 from ml_model import get_predictions_summary
-from sentiment import aggregate_sentiment, score_sentiment
+from sentiment import aggregate_sentiment
 from anomaly import zscore_anomaly
+from threat import fetch_threat_news, classify_threat, fetch_abuseipdb_reports
 
 st.set_page_config(page_title="Insight Dashboard", page_icon="◈", layout="wide", initial_sidebar_state="expanded")
 
@@ -98,7 +99,8 @@ def main():
             st.session_state.cache_key = location_key
             news_df = fetch_all_news([news_query] if news_query else None)
             st.session_state.news_data = add_sentiment_to_news(news_df) if not news_df.empty else news_df
-            st.session_state.reddit_data = fetch_reddit_sentiment(limit=5)
+            st.session_state.reddit_data = fetch_reddit_sentiment(limit=10)
+            st.session_state.threat_data = fetch_threat_news()
             st.session_state.last_refresh = datetime.now().strftime("%H:%M:%S")
             st.session_state.last_refresh_ts = datetime.now().timestamp()
 
@@ -117,11 +119,12 @@ def main():
     misinfo_news = news[news["misinfo_risk"]] if not news.empty and "misinfo_risk" in news.columns and news["misinfo_risk"].any() else pd.DataFrame()
 
     stock_hist = {s: fetch_stock_history(s) for s in stocks["symbol"].tolist()} if not stocks.empty else {}
+    crypto_hist = {s: fetch_crypto_history(s) for s in crypto["symbol"].tolist()} if not crypto.empty else {}
     anomaly_flags = 0
     for sym, prices in stock_hist.items():
         if len(prices) >= 5 and zscore_anomaly(prices)[-1]:
             anomaly_flags += 1
-    for sym, prices in {s: fetch_crypto_history(s) for s in crypto["symbol"].tolist()}.items():
+    for sym, prices in crypto_hist.items():
         if len(prices) >= 5 and zscore_anomaly(prices)[-1]:
             anomaly_flags += 1
 
@@ -135,9 +138,10 @@ def main():
         for _, r in misinfo_news.head(2).iterrows():
             st.markdown(f'<div class="alert-misinfo">◉ Possible misinformation / deepfake signal: {r.get("title", "")[:80]}...</div>', unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
         "Market Stress", "Finance", "Weather", "News & Sentiment",
-        "Risk Tracker", "Predictive Signals", "Predictions",
+        "Risk Tracker", "Deepfake Risk", "Economic Stress", "Threat Intelligence",
+        "Predictive Signals", "Predictions",
     ])
 
     with tab1:
@@ -308,10 +312,85 @@ def main():
         st.write("**Risk-related topics:** ", ", ".join(risk_queries))
         st.info("Add more news queries in sidebar to track region/topic-specific sentiment.")
 
-    stock_hist = {s: fetch_stock_history(s) for s in stocks["symbol"].tolist()} if not stocks.empty else {}
-    crypto_hist = {s: fetch_crypto_history(s) for s in crypto["symbol"].tolist()} if not crypto.empty else {}
-
     with tab6:
+        st.subheader("AI Misinformation & Deepfake Risk")
+        st.caption("Authenticity scoring and deepfake risk signals from news")
+        if not news.empty and "deepfake_risk" in news.columns:
+            avg_auth = news["authenticity"].mean() if "authenticity" in news.columns else 50
+            avg_risk = news["deepfake_risk"].mean()
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.metric("Avg Authenticity", f"{avg_auth:.0f}/100", "Higher = more likely authentic")
+            with c2:
+                st.metric("Avg Deepfake Risk", f"{avg_risk:.0f}/100", "Higher = higher misinfo risk")
+            with c3:
+                high_risk = (news["deepfake_risk"] > 30).sum() if "deepfake_risk" in news.columns else 0
+                st.metric("High-Risk Items", int(high_risk), "Content flagged for review")
+            by_source = news.groupby("source").agg(authenticity=("authenticity", "mean"), deepfake_risk=("deepfake_risk", "mean")).reset_index()
+            if not by_source.empty:
+                fig = px.bar(by_source, x="source", y=["authenticity", "deepfake_risk"], barmode="group", title="Authenticity vs Deepfake Risk by Source")
+                fig.update_layout(template="plotly_dark", yaxis_title="Score")
+                st.plotly_chart(fig, use_container_width=True)
+            st.subheader("Flagged Content (Regional/Global)")
+            flagged = news[news["deepfake_risk"] > 20].sort_values("deepfake_risk", ascending=False) if "deepfake_risk" in news.columns else pd.DataFrame()
+            for _, r in flagged.head(10).iterrows():
+                with st.expander(f"{r.get('source')}: {r.get('title', '')[:60]}... (risk: {r.get('deepfake_risk', 0):.0f})"):
+                    st.write(r.get("description", ""))
+                    if r.get("url"):
+                        st.link_button("Read", r["url"])
+        else:
+            st.info("News with sentiment data required. Add NEWS_API_KEY to .env.")
+
+    with tab7:
+        st.subheader("Economic Stress & Social Sentiment")
+        st.caption("Reddit sentiment correlated with market moves")
+        reddit = st.session_state.get("reddit_data", pd.DataFrame())
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric("Market Stress", f"{stress:.0f}/100", "Volatility + sentiment + anomalies")
+            max_ch = max([abs(r.get("change", 0) or 0) for _, r in stocks.iterrows()] + [abs(r.get("change_24h", 0) or 0) for _, r in crypto.iterrows()]) if not (stocks.empty and crypto.empty) else 0
+            st.metric("Largest Market Move", f"{max_ch:.1f}%", "Today")
+        with c2:
+            st.metric("News Sentiment", f"{news_sent:.2f}", "Negative" if news_sent < -0.2 else "Positive" if news_sent > 0.2 else "Neutral")
+            st.metric("Social Posts (Reddit)", len(reddit), "r/wallstreetbets, r/stocks, r/CryptoCurrency")
+        if not reddit.empty:
+            st.subheader("Reddit Hot Posts")
+            for _, r in reddit.head(8).iterrows():
+                st.caption(f"r/{r.get('subreddit')} · {r.get('score')} upvotes")
+                st.write(r.get("title", "")[:120])
+        st.subheader("Correlation View")
+        if not stocks.empty and not news.empty and "sentiment" in news.columns:
+            avg_sent = news["sentiment"].mean()
+            avg_ch = stocks["change"].mean()
+            st.write(f"Avg news sentiment: **{avg_sent:.2f}** | Avg stock change: **{avg_ch:.2f}%**")
+            st.info("Negative sentiment often precedes or accompanies market stress. Monitor Reddit + news for early signals.")
+
+    with tab8:
+        st.subheader("Cybersecurity Threat Trend Analyzer")
+        st.caption("Threat feed integration and NLP classification")
+        threat_ip = st.text_input("Check IP (AbuseIPDB)", "", placeholder="e.g. 8.8.8.8", key="threat_ip")
+        if threat_ip:
+            ip_data = fetch_abuseipdb_reports(ip=threat_ip.strip())
+            if not ip_data.empty:
+                st.dataframe(ip_data, use_container_width=True, hide_index=True)
+            else:
+                st.caption("Add ABUSEIPDB_API_KEY to .env for IP lookup. Free at abuseipdb.com")
+        threats = st.session_state.get("threat_data", fetch_threat_news())
+        if not threats.empty:
+            high = threats[threats["threat_level"] == "High"] if "threat_level" in threats.columns else pd.DataFrame()
+            st.metric("High-Severity Threats", len(high), "Ransomware, breach, phishing")
+            for _, r in threats.head(10).iterrows():
+                cats = r.get("threat_cats", []) or []
+                level = r.get("threat_level", "Low") or "Low"
+                cls = "alert-high" if level == "High" else "alert-medium" if level == "Medium" else ""
+                with st.expander(f"[{level}] {r.get('title', '')[:70]}... ({', '.join(cats) if isinstance(cats, list) else cats})"):
+                    st.write(r.get("source", ""))
+                    if r.get("url"):
+                        st.link_button("Read", r["url"])
+        if threats.empty:
+            st.info("Add NEWS_API_KEY for threat news. Demo data shown when unavailable.")
+
+    with tab9:
         st.subheader("Predictive Signals")
         horizon = st.slider("Prediction horizon (days)", 1, 14, 7, key="pred_horizon")
         summary6 = get_predictions_summary(stocks, crypto, st.session_state.get("weather_data", {}).get("forecast", pd.DataFrame()), stock_hist, crypto_hist)
@@ -339,7 +418,7 @@ def main():
                 fig.update_layout(template="plotly_dark", title=f"{pred_symbol} Price + {horizon}-Day Prediction")
                 st.plotly_chart(fig, use_container_width=True)
 
-    with tab7:
+    with tab10:
         summary = get_predictions_summary(stocks, crypto, st.session_state.get("weather_data", {}).get("forecast", pd.DataFrame()), stock_hist, crypto_hist)
         st.caption("Linear regression on 30-day history")
         c1, c2, c3 = st.columns(3)

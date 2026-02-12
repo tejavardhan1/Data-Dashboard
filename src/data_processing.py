@@ -48,15 +48,18 @@ def aggregate_forecast_by_day(forecast_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_sentiment_to_news(news_df: pd.DataFrame):
-    """Add sentiment and misinfo_risk columns to news DataFrame."""
+    """Add sentiment, authenticity, deepfake risk and misinfo_risk to news."""
     if news_df.empty:
         return news_df
     try:
-        from sentiment import score_sentiment, flag_misinfo_risk
+        from sentiment import score_sentiment, flag_misinfo_risk, authenticity_score, deepfake_risk_score
         out = news_df.copy()
         texts = (out.get("title", "") + " " + out.get("description", "")).fillna("")
+        sources = out.get("source", pd.Series([""] * len(out)))
         out["sentiment"] = texts.apply(score_sentiment)
         out["misinfo_risk"] = texts.apply(flag_misinfo_risk)
+        out["authenticity"] = [authenticity_score(t, s) for t, s in zip(texts, sources)]
+        out["deepfake_risk"] = texts.apply(deepfake_risk_score)
         return out
     except Exception:
         return news_df
